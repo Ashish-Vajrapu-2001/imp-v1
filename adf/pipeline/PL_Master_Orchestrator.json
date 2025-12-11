@@ -55,7 +55,7 @@
 							"userProperties": [],
 							"typeProperties": {
 								"expression": {
-									"value": "@equals(item().initial_load_completed, 0)",
+									"value": "@equals(item().initial_load_completed, false)",
 									"type": "Expression"
 								},
 								"ifFalseActivities": [
