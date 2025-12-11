@@ -1,115 +1,234 @@
 {
-    "name": "PL_Incremental_CDC_Single_Table",
-    "properties": {
-        "parameters": {
-            "pipeline_run_id": { "type": "String" },
-            "table_id": { "type": "Int" },
-            "source_system": { "type": "String" },
-            "schema_name": { "type": "String" },
-            "table_name": { "type": "String" },
-            "primary_key_columns": { "type": "String" },
-            "last_sync_version": { "type": "Int" }
-        },
-        "activities": [
-            {
-                "name": "Copy_CDCChanges_ToBronze",
-                "type": "Copy",
-                "typeProperties": {
-                    "source": {
-                        "type": "AzureSqlSource",
-                        "sqlReaderStoredProcedureName": "[control].[sp_GetCDCChanges]",
-                        "storedProcedureParameters": {
-                            "SchemaName": { "value": "@pipeline().parameters.schema_name", "type": "String" },
-                            "TableName": { "value": "@pipeline().parameters.table_name", "type": "String" },
-                            "PrimaryKeyColumns": { "value": "@pipeline().parameters.primary_key_columns", "type": "String" },
-                            "LastSyncVersion": { "value": "@pipeline().parameters.last_sync_version", "type": "Int64" }
-                        }
-                    },
-                    "sink": {
-                        "type": "ParquetSink"
-                    }
-                },
-                "inputs": [
-                    {
-                        "referenceName": "DS_AzureSQL_Source",
-                        "type": "DatasetReference",
-                        "parameters": {
-                            "schemaName": "@pipeline().parameters.schema_name",
-                            "tableName": "@pipeline().parameters.table_name"
-                        }
-                    }
-                ],
-                "outputs": [
-                    {
-                        "referenceName": "DS_Parquet_Bronze",
-                        "type": "DatasetReference",
-                        "parameters": {
-                            "source_system": "@pipeline().parameters.source_system",
-                            "schema_name": "@pipeline().parameters.schema_name",
-                            "table_name": "@pipeline().parameters.table_name",
-                            "load_type": "incremental",
-                            "pipeline_run_id": "@pipeline().parameters.pipeline_run_id"
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "Check_If_Rows_Copied",
-                "type": "IfCondition",
-                "dependsOn": [
-                    { "activity": "Copy_CDCChanges_ToBronze", "dependencyConditions": [ "Succeeded" ] }
-                ],
-                "typeProperties": {
-                    "expression": "@greater(activity('Copy_CDCChanges_ToBronze').output.rowsCopied, 0)",
-                    "ifTrueActivities": [
-                        {
-                            "name": "Notebook_IncrementalCDC",
-                            "type": "DatabricksNotebook",
-                            "linkedServiceName": {
-                                "referenceName": "LS_AzureDatabricks",
-                                "type": "LinkedServiceReference"
-                            },
-                            "typeProperties": {
-                                "notebookPath": "/Shared/bronze/Incremental_CDC_Dynamic",
-                                "baseParameters": {
-                                    "pipeline_run_id": "@pipeline().parameters.pipeline_run_id",
-                                    "table_id": "@pipeline().parameters.table_id",
-                                    "schema_name": "@pipeline().parameters.schema_name",
-                                    "table_name": "@pipeline().parameters.table_name",
-                                    "primary_key_columns": "@pipeline().parameters.primary_key_columns",
-                                    "source_system": "@pipeline().parameters.source_system",
-                                    "storage_account": "adfdatabricks456",
-                                    "sql_server": "adf-databricks.database.windows.net",
-                                    "sql_database": "ADF-Databricks",
-                                    "sql_username": "{{PLACEHOLDER_SQL_USERNAME}}",
-                                    "sql_password": "{{PLACEHOLDER_SQL_PASSWORD}}"
-                                }
-                            }
-                        }
-                    ],
-                    "ifFalseActivities": [
-                        {
-                            "name": "SP_UpdateMetadata_NoChanges",
-                            "type": "SqlServerStoredProcedure",
-                            "linkedServiceName": {
-                                "referenceName": "LS_AzureSQL_Control",
-                                "type": "LinkedServiceReference"
-                            },
-                            "typeProperties": {
-                                "storedProcedureName": "[control].[sp_UpdateTableMetadata]",
-                                "storedProcedureParameters": {
-                                    "TableId": { "value": "@pipeline().parameters.table_id", "type": "Int32" },
-                                    "Status": { "value": "SUCCESS", "type": "String" },
-                                    "PipelineRunId": { "value": "@pipeline().parameters.pipeline_run_id", "type": "String" },
-                                    "RecordsLoaded": { "value": "0", "type": "Int32" },
-                                    "SyncVersion": { "value": "@pipeline().parameters.last_sync_version", "type": "Int64" },
-                                    "MarkInitialLoadComplete": { "value": "0", "type": "Boolean" }
-                                }
-                            }
-                        }
-                    ]
-                }
-            }
-        ]
-    }
+	"name": "PL_Incremental_CDC_Single_Table",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy_CDCChanges_ToBronze",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[control].[sp_GetCDCChanges]",
+						"storedProcedureParameters": {
+							"SchemaName": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.schema_name",
+									"type": "Expression"
+								}
+							},
+							"TableName": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.table_name",
+									"type": "Expression"
+								}
+							},
+							"PrimaryKeyColumns": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.primary_key_columns",
+									"type": "Expression"
+								}
+							},
+							"LastSyncVersion": {
+								"type": "Int64",
+								"value": {
+									"value": "@pipeline().parameters.last_sync_version",
+									"type": "Expression"
+								}
+							}
+						},
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink"
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_AzureSQL_Source",
+						"type": "DatasetReference",
+						"parameters": {
+							"schemaName": "@pipeline().parameters.schema_name",
+							"tableName": "@pipeline().parameters.table_name"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_Parquet_Bronze",
+						"type": "DatasetReference",
+						"parameters": {
+							"source_system": "@pipeline().parameters.source_system",
+							"schema_name": "@pipeline().parameters.schema_name",
+							"table_name": "@pipeline().parameters.table_name",
+							"load_type": "incremental",
+							"pipeline_run_id": "@pipeline().parameters.pipeline_run_id"
+						}
+					}
+				]
+			},
+			{
+				"name": "Check_If_Rows_Copied",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Copy_CDCChanges_ToBronze",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(activity('Copy_CDCChanges_ToBronze').output.rowsCopied, 0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "SP_UpdateMetadata_NoChanges",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[control].[sp_UpdateTableMetadata]",
+								"storedProcedureParameters": {
+									"TableId": {
+										"value": {
+											"value": "@pipeline().parameters.table_id",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"Status": {
+										"value": "SUCCESS",
+										"type": "String"
+									},
+									"PipelineRunId": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"RecordsLoaded": {
+										"value": "0",
+										"type": "Int32"
+									},
+									"SyncVersion": {
+										"value": {
+											"value": "@pipeline().parameters.last_sync_version",
+											"type": "Expression"
+										},
+										"type": "Int64"
+									},
+									"MarkInitialLoadComplete": {
+										"value": "0",
+										"type": "Boolean"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_Control",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Notebook_IncrementalCDC",
+							"type": "DatabricksNotebook",
+							"dependsOn": [],
+							"policy": {
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebookPath": "/Shared/imp-v1/databricks/notebooks/bronze/Incremental_CDC_Dynamic",
+								"baseParameters": {
+									"pipeline_run_id": {
+										"value": "@pipeline().parameters.pipeline_run_id",
+										"type": "Expression"
+									},
+									"table_id": {
+										"value": "@pipeline().parameters.table_id",
+										"type": "Expression"
+									},
+									"schema_name": {
+										"value": "@pipeline().parameters.schema_name",
+										"type": "Expression"
+									},
+									"table_name": {
+										"value": "@pipeline().parameters.table_name",
+										"type": "Expression"
+									},
+									"primary_key_columns": {
+										"value": "@pipeline().parameters.primary_key_columns",
+										"type": "Expression"
+									},
+									"source_system": {
+										"value": "@pipeline().parameters.source_system",
+										"type": "Expression"
+									},
+									"storage_account": "adfdatabricks456",
+									"sql_server": "adf-databricks.database.windows.net",
+									"sql_database": "ADF-Databricks",
+									"sql_username": "{{PLACEHOLDER_SQL_USERNAME}}",
+									"sql_password": "{{PLACEHOLDER_SQL_PASSWORD}}"
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureDatabricks",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"pipeline_run_id": {
+				"type": "String"
+			},
+			"table_id": {
+				"type": "Int"
+			},
+			"source_system": {
+				"type": "String"
+			},
+			"schema_name": {
+				"type": "String"
+			},
+			"table_name": {
+				"type": "String"
+			},
+			"primary_key_columns": {
+				"type": "String"
+			},
+			"last_sync_version": {
+				"type": "Int"
+			}
+		},
+		"annotations": []
+	}
 }
