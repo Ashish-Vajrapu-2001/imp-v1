@@ -1,0 +1,30 @@
+{
+    "name": "DS_ControlDB",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "LS_AzureSQL_Control",
+            "type": "LinkedServiceReference"
+        },
+        "parameters": {
+            "schemaName": {
+                "type": "String",
+                "defaultValue": "control"
+            },
+            "tableName": {
+                "type": "String"
+            }
+        },
+        "type": "AzureSqlTable",
+        "schema": [],
+        "typeProperties": {
+            "schema": {
+                "value": "@dataset().schemaName",
+                "type": "Expression"
+            },
+            "table": {
+                "value": "@dataset().tableName",
+                "type": "Expression"
+            }
+        }
+    }
+}

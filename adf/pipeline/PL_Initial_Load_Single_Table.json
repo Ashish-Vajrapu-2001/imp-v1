@@ -1,0 +1,133 @@
+{
+    "name": "PL_Initial_Load_Single_Table",
+    "properties": {
+        "parameters": {
+            "pipeline_run_id": { "type": "String" },
+            "table_id": { "type": "Int" },
+            "source_system": { "type": "String" },
+            "schema_name": { "type": "String" },
+            "table_name": { "type": "String" },
+            "primary_key_columns": { "type": "String" }
+        },
+        "activities": [
+            {
+                "name": "Copy_FullTable_ToBronze",
+                "type": "Copy",
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": {
+                            "value": "SELECT *, CHANGE_TRACKING_CURRENT_VERSION() as _current_sync_version FROM @{pipeline().parameters.schema_name}.@{pipeline().parameters.table_name}",
+                            "type": "Expression"
+                        }
+                    },
+                    "sink": {
+                        "type": "ParquetSink"
+                    }
+                },
+                "inputs": [
+                    {
+                        "referenceName": "DS_AzureSQL_Source",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "schemaName": "@pipeline().parameters.schema_name",
+                            "tableName": "@pipeline().parameters.table_name"
+                        }
+                    }
+                ],
+                "outputs": [
+                    {
+                        "referenceName": "DS_Parquet_Bronze",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "source_system": "@pipeline().parameters.source_system",
+                            "schema_name": "@pipeline().parameters.schema_name",
+                            "table_name": "@pipeline().parameters.table_name",
+                            "load_type": "initial",
+                            "pipeline_run_id": "@pipeline().parameters.pipeline_run_id"
+                        }
+                    }
+                ]
+            },
+            {
+                "name": "Notebook_InitialLoad",
+                "type": "DatabricksNotebook",
+                "dependsOn": [
+                    {
+                        "activity": "Copy_FullTable_ToBronze",
+                        "dependencyConditions": [ "Succeeded" ]
+                    }
+                ],
+                "linkedServiceName": {
+                    "referenceName": "LS_AzureDatabricks",
+                    "type": "LinkedServiceReference"
+                },
+                "typeProperties": {
+                    "notebookPath": "/Shared/bronze/Initial_Load_Dynamic",
+                    "baseParameters": {
+                        "pipeline_run_id": "@pipeline().parameters.pipeline_run_id",
+                        "table_id": "@pipeline().parameters.table_id",
+                        "schema_name": "@pipeline().parameters.schema_name",
+                        "table_name": "@pipeline().parameters.table_name",
+                        "primary_key_columns": "@pipeline().parameters.primary_key_columns",
+                        "source_system": "@pipeline().parameters.source_system",
+                        "storage_account": "adfdatabricks456",
+                        "sql_server": "adf-databricks.database.windows.net",
+                        "sql_database": "ADF-Databricks",
+                        "sql_username": "{{PLACEHOLDER_SQL_USERNAME}}",
+                        "sql_password": "{{PLACEHOLDER_SQL_PASSWORD}}"
+                    }
+                }
+            },
+            {
+                "name": "SP_UpdateMetadata_Success",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "Notebook_InitialLoad",
+                        "dependencyConditions": [ "Succeeded" ]
+                    }
+                ],
+                "linkedServiceName": {
+                    "referenceName": "LS_AzureSQL_Control",
+                    "type": "LinkedServiceReference"
+                },
+                "typeProperties": {
+                    "storedProcedureName": "[control].[sp_UpdateTableMetadata]",
+                    "storedProcedureParameters": {
+                        "TableId": { "value": "@pipeline().parameters.table_id", "type": "Int32" },
+                        "Status": { "value": "SUCCESS", "type": "String" },
+                        "PipelineRunId": { "value": "@pipeline().parameters.pipeline_run_id", "type": "String" },
+                        "RecordsLoaded": { "value": "@activity('Copy_FullTable_ToBronze').output.rowsCopied", "type": "Int32" },
+                        "SyncVersion": { "value": "0", "type": "Int64" },
+                        "MarkInitialLoadComplete": { "value": "1", "type": "Boolean" }
+                    }
+                }
+            },
+            {
+                "name": "SP_UpdateMetadata_Failure",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    { "activity": "Notebook_InitialLoad", "dependencyConditions": [ "Failed" ] },
+                    { "activity": "Copy_FullTable_ToBronze", "dependencyConditions": [ "Failed" ] }
+                ],
+                "linkedServiceName": {
+                    "referenceName": "LS_AzureSQL_Control",
+                    "type": "LinkedServiceReference"
+                },
+                "typeProperties": {
+                    "storedProcedureName": "[control].[sp_UpdateTableMetadata]",
+                    "storedProcedureParameters": {
+                        "TableId": { "value": "@pipeline().parameters.table_id", "type": "Int32" },
+                        "Status": { "value": "FAILED", "type": "String" },
+                        "PipelineRunId": { "value": "@pipeline().parameters.pipeline_run_id", "type": "String" },
+                        "RecordsLoaded": { "value": "0", "type": "Int32" },
+                        "SyncVersion": { "value": "0", "type": "Int64" },
+                        "MarkInitialLoadComplete": { "value": "0", "type": "Boolean" },
+                        "ErrorMessage": { "value": "Pipeline Failed", "type": "String" }
+                    }
+                }
+            }
+        ]
+    }
+}

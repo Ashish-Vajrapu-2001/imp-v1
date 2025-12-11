@@ -1,0 +1,10 @@
+{
+    "name": "LS_AzureDataLakeStorage",
+    "properties": {
+        "type": "AzureBlobFS",
+        "typeProperties": {
+            "url": "https://adfdatabricks456.dfs.core.windows.net",
+            "accountKey": "{{PLACEHOLDER_STORAGE_KEY}}"
+        }
+    }
+}

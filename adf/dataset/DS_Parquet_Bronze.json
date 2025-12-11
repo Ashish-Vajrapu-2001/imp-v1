@@ -1,0 +1,38 @@
+{
+    "name": "DS_Parquet_Bronze",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "LS_AzureDataLakeStorage",
+            "type": "LinkedServiceReference"
+        },
+        "parameters": {
+            "source_system": {
+                "type": "String"
+            },
+            "schema_name": {
+                "type": "String"
+            },
+            "table_name": {
+                "type": "String"
+            },
+            "load_type": {
+                "type": "String"
+            },
+            "pipeline_run_id": {
+                "type": "String"
+            }
+        },
+        "type": "Parquet",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobFSLocation",
+                "folderPath": {
+                    "value": "bronze/@{dataset().source_system}/@{dataset().schema_name}/@{dataset().table_name}/@{dataset().load_type}/@{dataset().pipeline_run_id}",
+                    "type": "Expression"
+                },
+                "fileSystem": "datalake"
+            },
+            "compressionCodec": "snappy"
+        }
+    }
+}
