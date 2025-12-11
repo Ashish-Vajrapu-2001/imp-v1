@@ -159,7 +159,7 @@
 							"type": "Int64"
 						},
 						"MarkInitialLoadComplete": {
-							"value": "1",
+							"value": "true",
 							"type": "Boolean"
 						}
 					}
@@ -223,7 +223,7 @@
 							"type": "Int64"
 						},
 						"MarkInitialLoadComplete": {
-							"value": "0",
+							"value": "false",
 							"type": "Boolean"
 						},
 						"ErrorMessage": {
