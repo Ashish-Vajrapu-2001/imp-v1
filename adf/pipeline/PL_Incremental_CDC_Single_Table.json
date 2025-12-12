@@ -146,7 +146,7 @@
 										"type": "Int64"
 									},
 									"MarkInitialLoadComplete": {
-										"value": "0",
+										"value": "true",
 										"type": "Boolean"
 									}
 								}
