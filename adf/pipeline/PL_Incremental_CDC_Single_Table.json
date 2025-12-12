@@ -50,7 +50,13 @@
 						"partitionOption": "None"
 					},
 					"sink": {
-						"type": "ParquetSink"
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
 					},
 					"enableStaging": false
 				},
@@ -92,7 +98,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"expression": {
-						"value": "@greater(activity('Copy_CDCChanges_ToBronze').output.rowsCopied, 0)",
+						"value": "@not(equals(activity('Copy_CDCChanges_ToBronze').output.rowsCopied, 0))",
 						"type": "Expression"
 					},
 					"ifFalseActivities": [
@@ -227,6 +233,11 @@
 			},
 			"last_sync_version": {
 				"type": "Int"
+			}
+		},
+		"variables": {
+			"nw": {
+				"type": "String"
 			}
 		},
 		"annotations": []
